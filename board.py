@@ -4,20 +4,51 @@ import copy
 
 class Board:
 
-    # Create a function to parse the FEN position and return an 8x8 board
-    def __init__(self, board, nextMoveColor, lastMove):
+    def __init__(self, board, nextMoveColor, lastMove, kingPositions = None):
         self.board = copy.deepcopy(board)
         self.nextMoveColor = nextMoveColor
         self.selectedPiece = None
         self.possibleMoves = {}
+        self.lastMove = lastMove
+        if kingPositions != None:
+            self.kingPositions = copy.deepcopy(kingPositions)
+        else:
+            self.kingPositions = {}
+            for row in range(8):
+                for col in range(8):
+                    piece = self.board[row][col]
+                    if helpers.pieceType(piece) == constants.KING:
+                        self.kingPositions[piece] = (row, col)
 
     def getGameState(self):
+        if self.isKingInCheck(helpers.invertColor(self.getNextMoveColor())):
+            return -1
         return 1
     
+    def isKingInCheck(self, color):
+        # Get the position of the king
+        kingPosition = self.kingPositions[constants.KING | color]
+        
+        # Iterate through all opponent's pieces
+        for row in range(8):
+            for col in range(8):
+                piece = self.board[row][col]
+                if helpers.pieceType(piece) != constants.EMPTY and helpers.pieceColor(piece) == helpers.invertColor(color):
+                    moves = self.getMoves((row, col), True)
+                    if kingPosition in moves:
+                        # King is in check
+                        return True
+        
+        # King is not in check
+        return False
+
     def movePiece(self, pieceSquare, targetSquare):
-        newBoard = Board(self.board, helpers.invertColor(self.nextMoveColor), 0)
+        newBoard = Board(self.board, helpers.invertColor(self.nextMoveColor), (pieceSquare, targetSquare), self.kingPositions)
+        piece = newBoard.board[pieceSquare[0]][pieceSquare[1]]
         newBoard.board[targetSquare[0]][targetSquare[1]] = newBoard.board[pieceSquare[0]][pieceSquare[1]]
         newBoard.board[pieceSquare[0]][pieceSquare[1]] = 0
+        if helpers.pieceType(piece) == constants.KING:
+            newBoard.kingPositions[piece] = targetSquare
         return newBoard
     
     def generatePossibleMoves(self):
@@ -51,7 +82,7 @@ class Board:
         else:
             return helpers.pieceType(self.board[square[0]][square[1]]) == constants.EMPTY
     
-    def getMoves(self, pieceSquare):
+    def getMoves(self, pieceSquare, allowIllegalMoves = False):
         moves = {}
         piece = self.board[pieceSquare[0]][pieceSquare[1]]
 
@@ -64,25 +95,25 @@ class Board:
             move = (pieceSquare[0] + yMovement, pieceSquare[1])
             if helpers.inBounds(move) and self.containsPiece(-1, move):
                 newBoard = self.movePiece(pieceSquare, move)
-                if newBoard.getGameState() == 1:
+                if allowIllegalMoves or newBoard.getGameState() == 1:
                     moves[move] = newBoard
                 # handle starting jump
                 if pieceSquare[0] == helpers.getStartingPawnRank(helpers.pieceColor(piece)):
                     move = (pieceSquare[0] + yMovement*2, pieceSquare[1])
                     if helpers.inBounds(move) and self.containsPiece(-1, move):
                         newBoard = self.movePiece(pieceSquare, move)
-                        if newBoard.getGameState() == 1:
+                        if allowIllegalMoves or newBoard.getGameState() == 1:
                             moves[move] = newBoard
             # handle captures
             move = (pieceSquare[0] + yMovement, pieceSquare[1]-1)
             if helpers.inBounds(move) and self.containsPiece(helpers.invertColor(helpers.pieceColor(piece)), move):
                 newBoard = self.movePiece(pieceSquare, move)
-                if newBoard.getGameState() == 1:
+                if allowIllegalMoves or newBoard.getGameState() == 1:
                     moves[move] = newBoard
             move = (pieceSquare[0] + yMovement, pieceSquare[1]+1)
             if helpers.inBounds(move) and self.containsPiece(helpers.invertColor(helpers.pieceColor(piece)), move):
                 newBoard = self.movePiece(pieceSquare, move)
-                if newBoard.getGameState() == 1:
+                if allowIllegalMoves or newBoard.getGameState() == 1:
                     moves[move] = newBoard
         else:
             directions = []
@@ -102,11 +133,11 @@ class Board:
                         break
                     if self.containsPiece(-1, move):
                         newBoard = self.movePiece(pieceSquare, move)
-                        if newBoard.getGameState() == 1:
+                        if allowIllegalMoves or newBoard.getGameState() == 1:
                             moves[move] = newBoard
                     elif helpers.pieceColor(self.board[move[0]][move[1]]) != helpers.pieceColor(piece):
                         newBoard = self.movePiece(pieceSquare, move)
-                        if newBoard.getGameState() == 1:
+                        if allowIllegalMoves or newBoard.getGameState() == 1:
                             moves[move] = newBoard
                         break
                     else:
