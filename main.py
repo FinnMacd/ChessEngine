@@ -30,7 +30,7 @@ def handleClick(row, col):
         board.selectedPiece = None
         board.selectedPieceMoves = []
         if board.isValidMove(selectedPiece, (row, col)):
-            board = board.movePiece(selectedPiece, (row, col))
+            board = board.getMove(selectedPiece, (row, col))
             board.generatePossibleMoves()
 
 # Wait for the user to close the window
