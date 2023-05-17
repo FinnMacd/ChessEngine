@@ -22,15 +22,13 @@ def handleClick(row, col):
     piece = board.board[row][col]
     if board.selectedPiece is None:
         if helpers.pieceType(piece) != constants.EMPTY and helpers.pieceColor(piece) == board.getNextMoveColor():
-            board.selectedPiece = (row, col)
-            board.selectedPieceMoves = board.getMoves((row, col))
+            board.selectPiece((row, col))
 
     else:
         selectedPiece = board.selectedPiece
-        board.selectedPiece = None
-        board.selectedPieceMoves = []
+        board.selectPiece(None)
         if board.isValidMove(selectedPiece, (row, col)):
-            board = board.getMove(selectedPiece, (row, col))
+            board = board.getBoardFromMove(selectedPiece, (row, col))
             board.generatePossibleMoves()
 
 # Wait for the user to close the window
