@@ -118,7 +118,7 @@ class Board:
         if color != -1:
             return helpers.pieceColor(self.board[square[0]][square[1]]) == color and helpers.pieceType(self.board[square[0]][square[1]]) != constants.EMPTY
         else:
-            return helpers.pieceType(self.board[square[0]][square[1]]) == constants.EMPTY
+            return helpers.pieceType(self.board[square[0]][square[1]]) != constants.EMPTY
     
     def getMoves(self, pieceSquare, allowIllegalMoves = False):
         moves = {}
@@ -133,14 +133,14 @@ class Board:
             yMovement = -1 if pieceColor == constants.WHITE else 1
             # handle forward movement
             move = (pieceSquare[0] + yMovement, pieceSquare[1])
-            if helpers.inBounds(move) and self.containsPiece(-1, move):
+            if helpers.inBounds(move) and not self.containsPiece(-1, move):
                 newBoard = self.movePiece(pieceSquare, move)
                 if allowIllegalMoves or newBoard.getGameState() == 1:
                     moves[move] = newBoard
                 # handle starting jump
                 if pieceSquare[0] == helpers.getStartingPawnRank(pieceColor):
                     move = (pieceSquare[0] + yMovement*2, pieceSquare[1])
-                    if helpers.inBounds(move) and self.containsPiece(-1, move):
+                    if helpers.inBounds(move) and not self.containsPiece(-1, move):
                         newBoard = self.movePiece(pieceSquare, move)
                         if allowIllegalMoves or newBoard.getGameState() == 1:
                             moves[move] = newBoard
@@ -181,7 +181,7 @@ class Board:
                     move = (pieceSquare[0] + i * direction[0], pieceSquare[1] + i * direction[1])
                     if not helpers.inBounds(move):
                         break
-                    if self.containsPiece(-1, move):
+                    if not self.containsPiece(-1, move):
                         newBoard = self.movePiece(pieceSquare, move)
                         if allowIllegalMoves or newBoard.getGameState() == 1:
                             moves[move] = newBoard
@@ -203,7 +203,7 @@ class Board:
                     if allowIllegalMoves or newBoard.getGameState() == 1:
                         moves[move] = newBoard
                 if kingSide and self.isLineOpen(kingsRookSquare, pieceSquare):
-                    move = (pieceSquare[0], pieceSquare[1] - 2)
+                    move = (pieceSquare[0], pieceSquare[1] + 2)
                     newBoard = self.movePiece(pieceSquare, move, KING_SIDE_CASTLE)
                     if allowIllegalMoves or newBoard.getGameState() == 1:
                         moves[move] = newBoard
@@ -227,7 +227,6 @@ class Board:
         if xdiff != 0:
             direction[1] = int(xdiff/abs(xdiff))
 
-        direction = tuple(direction)
         currentSquare = ((firstSquare[0] + direction[0]), (firstSquare[1] + direction[1]))
         while currentSquare != secondSquare:
             if self.containsPiece(-1, currentSquare):
