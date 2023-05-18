@@ -1,11 +1,17 @@
+from dataclasses import dataclass
 import helpers
 import constants
 import copy
 from movement import getMoves
+from move import Move
+
+@dataclass
+class Piece():
+    data: int
 
 class Board:
 
-    def __init__(self, board, nextMoveColor, lastMove, castleOptions = constants.CASTLE_ALL_OPTIONS, kingPositions = None):
+    def __init__(self, board, nextMoveColor, lastMove: Move, castleOptions = constants.CASTLE_ALL_OPTIONS, kingPositions = None):
         self.board = copy.deepcopy(board)
         self.nextMoveColor = nextMoveColor
         self.selectedPiece = None
@@ -29,48 +35,51 @@ class Board:
         return 1
     
     def isSquareAttacked(self, targetSquare, color):
-        # Iterate through all opponent's pieces
+        # iterate through all opponent's pieces
         for row in range(8):
             for col in range(8):
                 piece = self.board[row][col]
                 if helpers.pieceType(piece) != constants.EMPTY and helpers.pieceColor(piece) == helpers.invertColor(color):
                     moves = getMoves(self, (row, col), True)
                     if targetSquare in moves:
-                        # King is in check
+                        # square is attacked
                         return True
         
-        # King is not in check
+        # square is not in attacked
         return False
 
-    def movePiece(self, pieceSquare, targetSquare, moveType):
-        newBoard = Board(self.board, helpers.invertColor(self.nextMoveColor), (pieceSquare, targetSquare), self.castleOptions, self.kingPositions)
-        piece = newBoard.board[pieceSquare[0]][pieceSquare[1]]
-        newBoard.board[targetSquare[0]][targetSquare[1]] = newBoard.board[pieceSquare[0]][pieceSquare[1]]
-        newBoard.board[pieceSquare[0]][pieceSquare[1]] = 0
+    def movePiece(self, move: Move):
+        newBoard = Board(self.board, helpers.invertColor(self.nextMoveColor), move, self.castleOptions, self.kingPositions)
+        piece = newBoard.getSquare(move.originSquare)
+        newBoard.setSquare(move.targetSquare, piece)
+        newBoard.setSquare(move.originSquare, 0)
 
-        if moveType == constants.EN_PASSANT:
-            newBoard.board[pieceSquare[0]][targetSquare[1]] = 0
-        elif moveType == constants.QUEEN_SIDE_CASTLE:
-            rookHome = (pieceSquare[0], 0)
-            rookTarget = (pieceSquare[0], 3)
+        if move.moveType == constants.EN_PASSANT:
+            newBoard.setSquare(move.getEnPassantCaptureSquare(), 0)
+        elif move.moveType == constants.QUEEN_SIDE_CASTLE:
+            rookHome = (move.originSquare[0], 0)
+            rookTarget = (move.originSquare[0], 3)
             newBoard.board[rookTarget[0]][rookTarget[1]] = newBoard.board[rookHome[0]][rookHome[1]]
             newBoard.board[rookHome[0]][rookHome[1]] = 0
-        elif moveType == constants.KING_SIDE_CASTLE:
-            rookHome = (pieceSquare[0], 7)
-            rookTarget = (pieceSquare[0], 5)
+        elif move.moveType == constants.KING_SIDE_CASTLE:
+            rookHome = (move.originSquare[0], 7)
+            rookTarget = (move.originSquare[0], 5)
             newBoard.board[rookTarget[0]][rookTarget[1]] = newBoard.board[rookHome[0]][rookHome[1]]
             newBoard.board[rookHome[0]][rookHome[1]] = 0
+        elif move.moveType == constants.PROMOTION:
+            newBoard.setSquare(move.targetSquare, helpers.pieceColor(piece) | move.promotionPiece)
+
         if helpers.pieceType(piece) == constants.KING:
-            newBoard.kingPositions[piece] = targetSquare
+            newBoard.kingPositions[piece] = move.targetSquare
 
         # assess castling impact
-        if pieceSquare == (0,0) or piece == constants.BLACK | constants.KING:
+        if move.originSquare == (0,0) or piece == constants.BLACK | constants.KING:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_BLACK_QUEEN_SIDE)
-        if pieceSquare == (0,7) or piece == constants.BLACK | constants.KING:
+        if move.originSquare == (0,7) or piece == constants.BLACK | constants.KING:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_BLACK_KING_SIDE)
-        if pieceSquare == (7,0) or piece == constants.WHITE | constants.KING:
+        if move.originSquare == (7,0) or piece == constants.WHITE | constants.KING:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_WHITE_QUEEN_SIDE)
-        if pieceSquare == (7,7) or piece == constants.WHITE | constants.KING:
+        if move.originSquare == (7,7) or piece == constants.WHITE | constants.KING:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_WHITE_KING_SIDE)
         
         return newBoard
@@ -115,6 +124,9 @@ class Board:
     
     def getSquare(self, targetSquare):
         return self.board[targetSquare[0]][targetSquare[1]]
+    
+    def setSquare(self, targetSquare, piece):
+        self.board[targetSquare[0]][targetSquare[1]] = piece
     
     def isLineOpen(self, firstSquare, secondSquare):
         if firstSquare == secondSquare:

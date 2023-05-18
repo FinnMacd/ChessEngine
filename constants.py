@@ -14,6 +14,7 @@ REGULAR_MOVE = 0
 EN_PASSANT = 1
 QUEEN_SIDE_CASTLE = 2
 KING_SIDE_CASTLE = 3
+PROMOTION = 4
 
 # bit representations of whether each castling option is still available
 CASTLE_WHITE_KING_SIDE = 1
