@@ -2,12 +2,11 @@ from dataclasses import dataclass
 import helpers
 import constants
 import copy
-from movement import getMoves
+from movement import getMoves, doesPieceAttackSquare
 from move import Move
+from piece import Piece
 
-@dataclass
-class Piece():
-    data: int
+boardMap = {}
 
 class Board:
 
@@ -16,6 +15,8 @@ class Board:
         self.nextMoveColor = nextMoveColor
         self.selectedPiece = None
         self.possibleMoves = {}
+        self.possibleBoards = set()
+        self.hasGenerated = False
         self.lastMove = lastMove
         self.castleOptions = castleOptions
         if kingPositions != None:
@@ -25,51 +26,65 @@ class Board:
             for row in range(8):
                 for col in range(8):
                     piece = self.board[row][col]
-                    if helpers.pieceType(piece) == constants.KING:
+                    if piece.getType() == constants.KING:
                         self.kingPositions[piece] = (row, col)
 
     def getGameState(self):
         kingColor = helpers.invertColor(self.getNextMoveColor())
-        if self.isSquareAttacked(self.kingPositions[constants.KING | kingColor], kingColor):
-            return -1
+        if self.isSquareAttacked(self.kingPositions[Piece(constants.KING | kingColor)], helpers.invertColor(kingColor)):
+            return constants.INVALID_STATE
         return 1
     
-    def isSquareAttacked(self, targetSquare, color):
+    def isSquareAttacked(self, targetSquare, attackingColor):
         # iterate through all opponent's pieces
         for row in range(8):
             for col in range(8):
-                piece = self.board[row][col]
-                if helpers.pieceType(piece) != constants.EMPTY and helpers.pieceColor(piece) == helpers.invertColor(color):
-                    moves = getMoves(self, (row, col), True)
-                    if targetSquare in moves:
-                        # square is attacked
+                piece = self.getSquare((row, col))
+                if piece.getType() != constants.EMPTY and piece.getColor() == attackingColor:
+
+                    if doesPieceAttackSquare(self, (row, col), piece, targetSquare, attackingColor):
                         return True
         
         # square is not in attacked
         return False
 
+    def generatePossibleMoves(self):
+        if self.hasGenerated:
+            return
+        moves = {None:[]}
+        for row in range(8):
+            for col in range(8):
+                if self.getNextMoveColor() == self.getSquare((row,col)).getColor() and self.getSquare((row,col)).getType() != constants.EMPTY:
+                    moveMap = getMoves(self, (row, col))
+                    self.possibleBoards.update(set(moveMap.values()))
+                    moves.update({(row, col) : moveMap})
+        self.possibleMoves = moves
+        self.hasGenerated = True
+    
     def movePiece(self, move: Move):
         newBoard = Board(self.board, helpers.invertColor(self.nextMoveColor), move, self.castleOptions, self.kingPositions)
         piece = newBoard.getSquare(move.originSquare)
+        if newBoard.getSquare(move.targetSquare).getType() != constants.EMPTY:
+            move.isCapture = True
         newBoard.setSquare(move.targetSquare, piece)
-        newBoard.setSquare(move.originSquare, 0)
+        newBoard.setSquare(move.originSquare, Piece(0))
 
         if move.moveType == constants.EN_PASSANT:
-            newBoard.setSquare(move.getEnPassantCaptureSquare(), 0)
+            newBoard.setSquare(move.getEnPassantCaptureSquare(), Piece(0))
         elif move.moveType == constants.QUEEN_SIDE_CASTLE:
             rookHome = (move.originSquare[0], 0)
             rookTarget = (move.originSquare[0], 3)
             newBoard.board[rookTarget[0]][rookTarget[1]] = newBoard.board[rookHome[0]][rookHome[1]]
-            newBoard.board[rookHome[0]][rookHome[1]] = 0
+            newBoard.board[rookHome[0]][rookHome[1]] = Piece(0)
         elif move.moveType == constants.KING_SIDE_CASTLE:
             rookHome = (move.originSquare[0], 7)
             rookTarget = (move.originSquare[0], 5)
             newBoard.board[rookTarget[0]][rookTarget[1]] = newBoard.board[rookHome[0]][rookHome[1]]
-            newBoard.board[rookHome[0]][rookHome[1]] = 0
+            newBoard.board[rookHome[0]][rookHome[1]] = Piece(0)
         elif move.moveType == constants.PROMOTION:
-            newBoard.setSquare(move.targetSquare, helpers.pieceColor(piece) | move.promotionPiece)
+            newBoard.setSquare(move.targetSquare, piece.getColor() | move.promotionPiece)
 
-        if helpers.pieceType(piece) == constants.KING:
+        if piece.getType() == constants.KING:
             newBoard.kingPositions[piece] = move.targetSquare
 
         # assess castling impact
@@ -81,16 +96,14 @@ class Board:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_WHITE_QUEEN_SIDE)
         if move.originSquare == (7,7) or piece == constants.WHITE | constants.KING:
             newBoard.castleOptions &= (constants.CASTLE_ALL_OPTIONS ^ constants.CASTLE_WHITE_KING_SIDE)
+
+        # boardKey = (newBoard.board, newBoard.castleOptions)
+
+        # if boardKey in boardMap:
+        #     return boardMap[boardKey]
         
+        # boardMap[boardKey] = newBoard
         return newBoard
-    
-    def generatePossibleMoves(self):
-        moves = {None:[]}
-        for row in range(8):
-            for col in range(8):
-                if self.getNextMoveColor() == helpers.pieceColor(self.board[row][col]) and helpers.pieceType(self.board[row][col]) != constants.EMPTY:
-                    moves.update({(row, col) : getMoves(self, (row, col))})
-        self.possibleMoves = moves
 
     def getNextMoveColor(self):
         return self.nextMoveColor
@@ -114,14 +127,6 @@ class Board:
     def getSelectedPieceMoves(self):
         return {} if self.selectedPiece == None else self.possibleMoves[self.selectedPiece]
     
-    # Returns a bool for whether the specified square contains a piece of the given color
-    # or if color is -1 returns whether the square is empty
-    def containsPiece(self, color, square):
-        if color != -1:
-            return helpers.pieceColor(self.board[square[0]][square[1]]) == color and helpers.pieceType(self.board[square[0]][square[1]]) != constants.EMPTY
-        else:
-            return helpers.pieceType(self.board[square[0]][square[1]]) != constants.EMPTY
-    
     def getSquare(self, targetSquare):
         return self.board[targetSquare[0]][targetSquare[1]]
     
@@ -143,7 +148,7 @@ class Board:
 
         currentSquare = ((firstSquare[0] + direction[0]), (firstSquare[1] + direction[1]))
         while currentSquare != secondSquare:
-            if self.containsPiece(-1, currentSquare):
+            if self.getSquare(currentSquare).getType() == constants.EMPTY:
                 return False
             currentSquare = ((currentSquare[0] + direction[0]), (currentSquare[1] + direction[1]))
 

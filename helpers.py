@@ -1,4 +1,5 @@
 import constants
+from piece import Piece
 
 # Create a funciton to parse bool character input to the internal in piece representation
 def parsePiece(isWhite, piece):
@@ -12,13 +13,7 @@ def parsePiece(isWhite, piece):
         'k': constants.KING
     }
     piece_type = switcher.get(piece.lower())
-    return piece_type | color
-
-def pieceType(piece):
-    return piece & constants.PIECE_MASK
-
-def pieceColor(piece):
-    return piece & constants.COLOR_MASK
+    return Piece(piece_type | color)
 
 def inBounds(square):
     return square[0] >= 0 and square[1] >= 0 and square[0] < 8 and square[1] < 8
@@ -37,7 +32,7 @@ def getBoardFromFEN(fen):
         for char in row:
             if char.isdigit():
                 for i in range(int(char)):
-                    board_row.append(0)
+                    board_row.append(Piece(0))
             else:
                 board_row.append(parsePiece(char.isupper(), char))
                 

@@ -2,6 +2,7 @@ import pygame
 import helpers
 import board
 import constants
+from piece import Piece
 
 # Define the colors for the board squares
 LIGHT_SQUARE_COLOR = (255, 206, 158)
@@ -40,8 +41,8 @@ class ScreenManager(object):
                 pygame.draw.rect(self.screen, squareColor, (col * constants.SQUARE_SIZE, row * constants.SQUARE_SIZE, constants.SQUARE_SIZE, constants.SQUARE_SIZE))
 
     # Create a function to render a piece on the board
-    def renderPiece(self, piece, row, col):
-        if piece & 7 == 0:
+    def renderPiece(self, piece: Piece, row, col):
+        if piece.getType() == constants.EMPTY:
             return
         piece_image = pieces[piece]
         x = (col + 0.1) * constants.SQUARE_SIZE

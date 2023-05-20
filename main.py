@@ -5,6 +5,7 @@ import constants
 from board import Board
 from screen_manager import ScreenManager
 import helpers
+from evaluate import searchDepth
 
 # Initialize Pygame
 pygame.init()
@@ -21,7 +22,7 @@ def handleClick(row, col):
     global board
     piece = board.board[row][col]
     if board.selectedPiece is None:
-        if helpers.pieceType(piece) != constants.EMPTY and helpers.pieceColor(piece) == board.getNextMoveColor():
+        if piece.getType() != constants.EMPTY and piece.getColor() == board.getNextMoveColor():
             board.selectPiece((row, col))
 
     else:
@@ -30,6 +31,10 @@ def handleClick(row, col):
         if board.isValidMove(selectedPiece, (row, col)):
             board = board.getBoardFromMove(selectedPiece, (row, col))
             board.generatePossibleMoves()
+
+            move, evaluation = searchDepth(board, 1)
+            print(f"best move: {move.getAlgebraicNotation()}, evaluation: {evaluation}")
+
 
 # Wait for the user to close the window
 done = False
